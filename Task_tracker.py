@@ -50,8 +50,8 @@ def get_today_str():
 def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
-def retry_operation(func, retries=3):
-    """Retries a function if it hits a rate limit error. Reduced retries to prevent long waits."""
+def retry_operation(func, retries=4):
+    """Retries a function if it hits a rate limit error. Increased retries for safety."""
     for i in range(retries):
         try:
             return func()
@@ -59,31 +59,45 @@ def retry_operation(func, retries=3):
             error_str = str(e)
             # Check for rate limit (429) or resource exhausted errors
             if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "Quota exceeded" in error_str:
-                wait_time = (2 ** i) + random.random() # Exponential backoff
+                wait_time = (2 ** i) + random.uniform(0, 1) # Exponential backoff with jitter
                 time.sleep(wait_time)
                 continue
             else:
                 raise e # Re-raise if it's a different error
-    raise Exception("Max retries exceeded for API operation")
+    raise Exception("Max retries exceeded. The Google Sheets API is busy. Please wait a moment and reload.")
 
-def fetch_data():
-    """Fetches data safely with retries. Returns df. If error, stops app execution."""
+def save_data(df):
+    """Saves data to Google Sheets with retries."""
+    conn = get_gsheets_conn()
+    
+    def write_op():
+        conn.update(worksheet='Tasks', data=df)
+        
+    try:
+        retry_operation(write_op)
+        st.cache_data.clear()
+    except Exception as e:
+        st.error(f"Failed to save data: {e}")
+
+def fetch_data(init_if_missing=True):
+    """
+    Fetches data safely. 
+    Optimization: Handles initialization logic internally to avoid extra reads.
+    """
     conn = get_gsheets_conn()
     cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     
     try:
-        # Define the read operation
         def read_op():
             return conn.read(worksheet='Tasks', usecols=list(range(len(cols))), ttl=0)
             
-        # Execute with retry logic
         df = retry_operation(read_op)
         
         # Handle empty/None returns safely
         if df is None:
-             return pd.DataFrame(columns=cols)
+             df = pd.DataFrame(columns=cols)
         if df.empty:
-             return pd.DataFrame(columns=cols) if df.columns.empty else df
+             df = pd.DataFrame(columns=cols) if df.columns.empty else df
 
         # Ensure schema matches
         for col in cols:
@@ -108,44 +122,27 @@ def fetch_data():
         return df
         
     except Exception as e:
-        st.error(f"Unable to load data (Retrying might help): {e}")
+        # If worksheet is missing, create it immediately if flag is set
+        if "WorksheetNotFound" in str(e) and init_if_missing:
+            df_new = pd.DataFrame(columns=cols)
+            save_data(df_new)
+            return df_new
+            
+        st.error(f"Unable to load data: {e}")
         st.stop()
 
-def save_data(df):
-    """Saves data to Google Sheets with retries."""
-    conn = get_gsheets_conn()
-    
-    def write_op():
-        conn.update(worksheet='Tasks', data=df)
-        
-    try:
-        retry_operation(write_op)
-        st.cache_data.clear()
-    except Exception as e:
-        st.error(f"Failed to save data: {e}")
-
-def init_db():
-    """Initializes the DB only if it is missing."""
-    conn = get_gsheets_conn()
-    required_cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
-    
-    try:
-        def check_op():
-            conn.read(worksheet='Tasks', ttl=0)
-        retry_operation(check_op)
-    except Exception as e:
-        if "WorksheetNotFound" in str(e):
-             df = pd.DataFrame(columns=required_cols)
-             save_data(df)
-        # Else: ignore. Let fetch_data catch it.
-
-def run_auto_promote():
-    # --- FIX: Only run this logic ONCE per session to allow manual overrides ---
+def run_auto_promote(df):
+    """
+    Auto-promotes tasks.
+    Optimization: Accepts 'df' as argument to avoid re-fetching data.
+    """
+    # Only run this logic ONCE per session to allow manual overrides
     if 'auto_promote_ran' in st.session_state:
-        return
+        return df
         
-    df = fetch_data()
-    if df.empty: return
+    if df.empty: 
+        st.session_state['auto_promote_ran'] = True
+        return df
     
     today_str = get_today_str()
     updates = 0
@@ -177,8 +174,8 @@ def run_auto_promote():
         if mask_promote.sum() > 0:
             st.toast(f"🚀 Promoted {mask_promote.sum()} tasks!")
     
-    # Mark as ran so it doesn't fight the user on next reload
     st.session_state['auto_promote_ran'] = True
+    return df
 
 def add_task(text, priority):
     df = fetch_data()
@@ -216,7 +213,6 @@ def update_task_details(task_id, new_text, new_priority):
     df = fetch_data()
     target_id = str(task_id)
     
-    # SAFETY CHECK
     if target_id not in df['id'].values:
         st.toast("⚠️ Task not found. Cannot update.")
         return
@@ -224,7 +220,7 @@ def update_task_details(task_id, new_text, new_priority):
     mask = df['id'] == target_id
     df.loc[mask, 'text'] = new_text
     df.loc[mask, 'priority'] = new_priority
-    # FIX: If user manually updates, remove the 'auto promoted' flag so badge disappears
+    # FIX: Remove auto-promoted flag if manually edited
     df.loc[mask, 'was_auto_promoted'] = False
     
     save_data(df)
@@ -234,24 +230,23 @@ def delete_task(task_id):
     df = fetch_data()
     target_id = str(task_id)
     
-    # CRITICAL SAFETY CHECK
     if target_id not in df['id'].values:
         st.toast("⚠️ Task not found (already deleted?). Data preserved.")
         return
 
-    # Filter out the task
     df = df[df['id'] != target_id]
-    
-    # Save only after verification
     save_data(df)
     st.toast("Task Deleted!")
 
-# --- Execution ---
-init_db()
-run_auto_promote()
+# --- Execution Flow (Optimized) ---
 
-# Safe Fetch
-data = fetch_data()
+# 1. Single Read Operation
+data = fetch_data(init_if_missing=True)
+
+# 2. Run Auto Promote (uses the data we just fetched)
+data = run_auto_promote(data)
+
+# 3. Convert to dict for UI
 all_tasks = data.to_dict('records')
 
 # --- Layout ---
@@ -330,7 +325,7 @@ with col_main:
                 prio_options = ["High", "Medium", "Low"]
                 curr_prio = task['priority']
                 if curr_prio not in prio_options:
-                    curr_prio = "Medium" # Fallback to prevent crash
+                    curr_prio = "Medium" # Fallback
                 
                 e_prio = st.selectbox("Level", prio_options, index=prio_options.index(curr_prio), key=f"ep_{task['id']}")
                 
