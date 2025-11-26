@@ -50,8 +50,8 @@ def get_today_str():
 def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
-def retry_operation(func, retries=5):
-    """Retries a function if it hits a rate limit error."""
+def retry_operation(func, retries=3):
+    """Retries a function if it hits a rate limit error. Reduced retries to prevent long waits."""
     for i in range(retries):
         try:
             return func()
@@ -140,6 +140,10 @@ def init_db():
         # Else: ignore. Let fetch_data catch it.
 
 def run_auto_promote():
+    # --- FIX: Only run this logic ONCE per session to allow manual overrides ---
+    if 'auto_promote_ran' in st.session_state:
+        return
+        
     df = fetch_data()
     if df.empty: return
     
@@ -172,6 +176,9 @@ def run_auto_promote():
         save_data(df)
         if mask_promote.sum() > 0:
             st.toast(f"🚀 Promoted {mask_promote.sum()} tasks!")
+    
+    # Mark as ran so it doesn't fight the user on next reload
+    st.session_state['auto_promote_ran'] = True
 
 def add_task(text, priority):
     df = fetch_data()
@@ -217,6 +224,9 @@ def update_task_details(task_id, new_text, new_priority):
     mask = df['id'] == target_id
     df.loc[mask, 'text'] = new_text
     df.loc[mask, 'priority'] = new_priority
+    # FIX: If user manually updates, remove the 'auto promoted' flag so badge disappears
+    df.loc[mask, 'was_auto_promoted'] = False
+    
     save_data(df)
     st.toast("Task Updated!")
 
