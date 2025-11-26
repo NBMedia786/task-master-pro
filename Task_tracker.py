@@ -7,21 +7,15 @@ from streamlit_gsheets import GSheetsConnection
 
 # --- Configuration ---
 st.set_page_config(page_title="Task Master Pro", page_icon="✅", layout="wide")
-
-# Set your timezone here
 TIMEZONE = 'Asia/Kolkata' 
 
-# --- Professional UI & CSS Styling ---
+# --- CSS Styling ---
 st.markdown("""
     <style>
     .block-container { padding-top: 2rem; padding-bottom: 2rem; }
     .task-card {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px;
+        padding: 15px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     @media (prefers-color-scheme: dark) {
         .task-card { background-color: #262730; border-color: #41424b; }
@@ -50,36 +44,32 @@ def get_current_time():
 def get_today_str():
     return get_current_time().strftime('%Y-%m-%d')
 
-# --- Google Sheets Connection ---
 @st.cache_resource
 def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
 def fetch_data():
-    """Fetches data with ttl=0 to ensure we always get the latest version."""
+    """Fetches data safely. If read fails, IT STOPS. It never returns empty data blindly."""
     conn = get_gsheets_conn()
     cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     
     try:
-        # ttl=0 is CRITICAL: It forces Streamlit to download fresh data every time
+        # ttl=0 forces fresh download
         df = conn.read(worksheet='Tasks', usecols=list(range(len(cols))), ttl=0)
         
-        # Handle cases where read returns nothing useful
+        # If the sheet is genuinely empty (0 rows), return empty DF with columns
         if df is None:
              return pd.DataFrame(columns=cols)
-
         if df.empty:
-             # Even if empty, ensure columns are present
              return pd.DataFrame(columns=cols) if df.columns.empty else df
-            
-        # Ensure all columns exist
+
+        # Ensure schema matches
         for col in cols:
             if col not in df.columns:
                 df[col] = None
                 
-        # Type Safety
+        # Type cleanup
         df['id'] = df['id'].astype(str)
-        
         def clean_bool(x):
             if isinstance(x, bool): return x
             if isinstance(x, (int, float)): return bool(x)
@@ -95,39 +85,31 @@ def fetch_data():
         
         return df
         
-    except Exception:
-        return pd.DataFrame(columns=cols)
+    except Exception as e:
+        # FAIL SAFE: If we can't read, we STOP. We do NOT return an empty DF.
+        # This prevents the app from thinking the DB is empty and saving blank state.
+        st.error(f"Unable to read Google Sheet. Retrying usually fixes this. Error details: {e}")
+        st.stop()
 
 def save_data(df):
     conn = get_gsheets_conn()
     conn.update(worksheet='Tasks', data=df)
-    st.cache_data.clear() 
+    st.cache_data.clear()
 
 def init_db():
     conn = get_gsheets_conn()
     required_cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     try:
-        # Read existing data without failing on missing columns
-        df = conn.read(worksheet='Tasks', ttl=0)
-        
-        # Calculate if any columns are missing
-        missing_cols = [c for c in required_cols if c not in df.columns]
-        
-        if missing_cols:
-            # GENTLE FIX: Add missing columns, DO NOT DELETE DATA
-            for c in missing_cols:
-                df[c] = None
-            save_data(df)
-            
+        # Try to read to check existence
+        conn.read(worksheet='Tasks', ttl=0)
     except Exception as e:
-        # Only create a fresh sheet if we cannot read the old one at all
-        # This prevents accidental wiping of data
-        try:
+        # Only initialize if it is a "WorksheetNotFound" error
+        if "WorksheetNotFound" in str(e):
              df = pd.DataFrame(columns=required_cols)
              save_data(df)
-        except:
-             st.error("⚠️ System Error: Please ensure your Google Sheet has a tab named 'Tasks'.")
-             st.stop()
+        else:
+             # If it's a network error, do nothing. Let fetch_data handle the stop.
+             pass
 
 def run_auto_promote():
     df = fetch_data()
@@ -136,7 +118,6 @@ def run_auto_promote():
     today_str = get_today_str()
     updates = 0
     
-    # 1. Promote old tasks
     mask_promote = (
         (df['completed'] == False) & 
         (df['priority'] != 'High') & 
@@ -148,7 +129,6 @@ def run_auto_promote():
         df.loc[mask_promote, 'was_auto_promoted'] = True
         updates += 1
     
-    # 2. Mark carried over
     mask_carried = (
         (df['completed'] == False) & 
         (df['priority'] == 'High') & 
@@ -167,6 +147,11 @@ def run_auto_promote():
 
 def add_task(text, priority):
     df = fetch_data()
+    # Double check we have a valid dataframe
+    if not isinstance(df, pd.DataFrame):
+        st.error("Error reading data. Task not added.")
+        return
+
     new_row = pd.DataFrame([{
         'id': str(uuid.uuid4()),
         'text': text,
@@ -205,12 +190,14 @@ def delete_task(task_id):
 # --- Execution ---
 init_db()
 run_auto_promote()
-all_tasks = fetch_data().to_dict('records')
+
+# Safe Fetch
+data = fetch_data()
+all_tasks = data.to_dict('records')
 
 # --- Layout ---
 col_main, col_sidebar = st.columns([3, 1])
 
-# Sidebar
 with st.sidebar:
     st.title("✅ History")
     st.markdown("---")
@@ -242,7 +229,6 @@ with st.sidebar:
                 st.rerun()
             st.markdown("---")
 
-# Main
 with col_main:
     st.title("Task Master Pro 🚀")
     
