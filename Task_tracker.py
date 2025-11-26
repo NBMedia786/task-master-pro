@@ -50,7 +50,7 @@ def get_today_str():
 def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
-def retry_operation(func, retries=4):
+def retry_operation(func, retries=6):
     """Retries a function if it hits a rate limit error. Increased retries for safety."""
     for i in range(retries):
         try:
@@ -58,13 +58,14 @@ def retry_operation(func, retries=4):
         except Exception as e:
             error_str = str(e)
             # Check for rate limit (429) or resource exhausted errors
-            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "Quota exceeded" in error_str:
-                wait_time = (2 ** i) + random.uniform(0, 1) # Exponential backoff with jitter
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "Quota exceeded" in error_str or "500" in error_str or "503" in error_str:
+                # Exponential backoff: 1s, 2s, 4s, 8s, 16s...
+                wait_time = (2 ** i) + random.uniform(0, 1) 
                 time.sleep(wait_time)
                 continue
             else:
                 raise e # Re-raise if it's a different error
-    raise Exception("Max retries exceeded. The Google Sheets API is busy. Please wait a moment and reload.")
+    raise Exception("Server is busy (Quota Exceeded). Please wait a moment and try again.")
 
 def save_data(df):
     """Saves data to Google Sheets with retries."""
@@ -77,12 +78,13 @@ def save_data(df):
         retry_operation(write_op)
         st.cache_data.clear()
     except Exception as e:
-        st.error(f"Failed to save data: {e}")
+        # Show a warning instead of crashing if save fails
+        st.warning(f"⚠️ Could not save changes: Server busy. Please try again in 10s.")
 
-def fetch_data(init_if_missing=True):
+def fetch_data(init_if_missing=True, error_handling='stop'):
     """
     Fetches data safely. 
-    Optimization: Handles initialization logic internally to avoid extra reads.
+    error_handling: 'stop' (crash app), 'toast' (show warning and continue), 'raise' (pass error up)
     """
     conn = get_gsheets_conn()
     cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
@@ -127,9 +129,17 @@ def fetch_data(init_if_missing=True):
             df_new = pd.DataFrame(columns=cols)
             save_data(df_new)
             return df_new
-            
-        st.error(f"Unable to load data: {e}")
-        st.stop()
+        
+        # Handle errors gracefully based on context
+        msg = f"Unable to load data: {e}"
+        if error_handling == 'stop':
+            st.error(msg)
+            st.stop()
+        elif error_handling == 'toast':
+            st.toast("⚠️ Server busy (Quota). Please wait 10s and try again.")
+            return None
+        else:
+            raise e
 
 def run_auto_promote(df):
     """
@@ -178,7 +188,9 @@ def run_auto_promote(df):
     return df
 
 def add_task(text, priority):
-    df = fetch_data()
+    # Use toast error handling to prevent crash
+    df = fetch_data(error_handling='toast')
+    if df is None: return 
     
     new_row = pd.DataFrame([{
         'id': str(uuid.uuid4()),
@@ -194,7 +206,10 @@ def add_task(text, priority):
     st.toast("Task Added!")
 
 def toggle_complete(task_id, current_val):
-    df = fetch_data()
+    # Use toast error handling to prevent crash
+    df = fetch_data(error_handling='toast')
+    if df is None: return
+
     target_id = str(task_id)
     
     # SAFETY CHECK: Only proceed if ID exists
@@ -210,7 +225,10 @@ def toggle_complete(task_id, current_val):
     save_data(df)
 
 def update_task_details(task_id, new_text, new_priority):
-    df = fetch_data()
+    # Use toast error handling to prevent crash
+    df = fetch_data(error_handling='toast')
+    if df is None: return
+
     target_id = str(task_id)
     
     if target_id not in df['id'].values:
@@ -227,7 +245,10 @@ def update_task_details(task_id, new_text, new_priority):
     st.toast("Task Updated!")
 
 def delete_task(task_id):
-    df = fetch_data()
+    # Use toast error handling to prevent crash
+    df = fetch_data(error_handling='toast')
+    if df is None: return
+
     target_id = str(task_id)
     
     if target_id not in df['id'].values:
@@ -240,8 +261,8 @@ def delete_task(task_id):
 
 # --- Execution Flow (Optimized) ---
 
-# 1. Single Read Operation
-data = fetch_data(init_if_missing=True)
+# 1. Single Read Operation (Critical: Stops if this fails)
+data = fetch_data(init_if_missing=True, error_handling='stop')
 
 # 2. Run Auto Promote (uses the data we just fetched)
 data = run_auto_promote(data)
