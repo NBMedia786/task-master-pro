@@ -64,8 +64,13 @@ def fetch_data():
         # ttl=0 is CRITICAL: It forces Streamlit to download fresh data every time
         df = conn.read(worksheet='Tasks', usecols=list(range(len(cols))), ttl=0)
         
+        # Handle cases where read returns nothing useful
+        if df is None:
+             return pd.DataFrame(columns=cols)
+
         if df.empty:
-            return pd.DataFrame(columns=cols)
+             # Even if empty, ensure columns are present
+             return pd.DataFrame(columns=cols) if df.columns.empty else df
             
         # Ensure all columns exist
         for col in cols:
@@ -96,23 +101,33 @@ def fetch_data():
 def save_data(df):
     conn = get_gsheets_conn()
     conn.update(worksheet='Tasks', data=df)
-    st.cache_data.clear() # Clear any other caches just in case
+    st.cache_data.clear() 
 
 def init_db():
     conn = get_gsheets_conn()
     required_cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     try:
-        df = conn.read(worksheet='Tasks', usecols=list(range(len(required_cols))), ttl=0)
-        if df.empty or not all(col in df.columns for col in required_cols):
+        # Read existing data without failing on missing columns
+        df = conn.read(worksheet='Tasks', ttl=0)
+        
+        # Calculate if any columns are missing
+        missing_cols = [c for c in required_cols if c not in df.columns]
+        
+        if missing_cols:
+            # GENTLE FIX: Add missing columns, DO NOT DELETE DATA
+            for c in missing_cols:
+                df[c] = None
+            save_data(df)
+            
+    except Exception as e:
+        # Only create a fresh sheet if we cannot read the old one at all
+        # This prevents accidental wiping of data
+        try:
              df = pd.DataFrame(columns=required_cols)
              save_data(df)
-    except Exception as e:
-        df = pd.DataFrame(columns=required_cols)
-        try:
-            save_data(df)
-        except Exception:
-            st.error(f"⚠️ Error: Could not find 'Tasks' worksheet. Please rename 'Sheet1' to 'Tasks' in your Google Sheet.")
-            st.stop()
+        except:
+             st.error("⚠️ System Error: Please ensure your Google Sheet has a tab named 'Tasks'.")
+             st.stop()
 
 def run_auto_promote():
     df = fetch_data()
@@ -163,7 +178,7 @@ def add_task(text, priority):
     }])
     df = pd.concat([df, new_row], ignore_index=True)
     save_data(df)
-    st.success("Task Saved to Google Sheets! Reloading...")
+    st.success("Task Saved!")
 
 def toggle_complete(task_id, current_val):
     df = fetch_data()
