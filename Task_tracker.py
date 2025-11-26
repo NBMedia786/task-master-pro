@@ -3,6 +3,8 @@ import pandas as pd
 import datetime
 import uuid
 import pytz
+import time
+import random
 from streamlit_gsheets import GSheetsConnection
 
 # --- Configuration ---
@@ -48,14 +50,34 @@ def get_today_str():
 def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
+def retry_operation(func, retries=5):
+    """Retries a function if it hits a rate limit error."""
+    for i in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            error_str = str(e)
+            # Check for rate limit (429) or resource exhausted errors
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "Quota exceeded" in error_str:
+                wait_time = (2 ** i) + random.random() # Exponential backoff
+                time.sleep(wait_time)
+                continue
+            else:
+                raise e # Re-raise if it's a different error
+    raise Exception("Max retries exceeded for API operation")
+
 def fetch_data():
-    """Fetches data safely. Returns df. If error, stops app execution."""
+    """Fetches data safely with retries. Returns df. If error, stops app execution."""
     conn = get_gsheets_conn()
     cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     
     try:
-        # ttl=0 forces fresh download
-        df = conn.read(worksheet='Tasks', usecols=list(range(len(cols))), ttl=0)
+        # Define the read operation
+        def read_op():
+            return conn.read(worksheet='Tasks', usecols=list(range(len(cols))), ttl=0)
+            
+        # Execute with retry logic
+        df = retry_operation(read_op)
         
         # Handle empty/None returns safely
         if df is None:
@@ -86,22 +108,31 @@ def fetch_data():
         return df
         
     except Exception as e:
-        # FAIL SAFE: Stop execution if read fails. Do NOT return empty DF.
-        st.error(f"Connection Error: {e}")
+        st.error(f"Unable to load data (Retrying might help): {e}")
         st.stop()
 
 def save_data(df):
-    """Saves data to Google Sheets."""
+    """Saves data to Google Sheets with retries."""
     conn = get_gsheets_conn()
-    conn.update(worksheet='Tasks', data=df)
-    st.cache_data.clear()
+    
+    def write_op():
+        conn.update(worksheet='Tasks', data=df)
+        
+    try:
+        retry_operation(write_op)
+        st.cache_data.clear()
+    except Exception as e:
+        st.error(f"Failed to save data: {e}")
 
 def init_db():
     """Initializes the DB only if it is missing."""
     conn = get_gsheets_conn()
     required_cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
+    
     try:
-        conn.read(worksheet='Tasks', ttl=0)
+        def check_op():
+            conn.read(worksheet='Tasks', ttl=0)
+        retry_operation(check_op)
     except Exception as e:
         if "WorksheetNotFound" in str(e):
              df = pd.DataFrame(columns=required_cols)
@@ -193,10 +224,7 @@ def delete_task(task_id):
     df = fetch_data()
     target_id = str(task_id)
     
-    # CRITICAL SAFETY CHECK:
-    # If the ID is not in the fetched data, DO NOT SAVE.
-    # This implies the fetched data might be empty or stale.
-    # Saving now would overwrite the DB with missing data.
+    # CRITICAL SAFETY CHECK
     if target_id not in df['id'].values:
         st.toast("⚠️ Task not found (already deleted?). Data preserved.")
         return
