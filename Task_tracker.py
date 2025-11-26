@@ -49,7 +49,7 @@ def get_gsheets_conn():
     return st.connection("gsheets", type=GSheetsConnection)
 
 def fetch_data():
-    """Fetches data safely. If read fails, IT STOPS. It never returns empty data blindly."""
+    """Fetches data safely. Returns df. If error, stops app execution."""
     conn = get_gsheets_conn()
     cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     
@@ -57,7 +57,7 @@ def fetch_data():
         # ttl=0 forces fresh download
         df = conn.read(worksheet='Tasks', usecols=list(range(len(cols))), ttl=0)
         
-        # If the sheet is genuinely empty (0 rows), return empty DF with columns
+        # Handle empty/None returns safely
         if df is None:
              return pd.DataFrame(columns=cols)
         if df.empty:
@@ -86,30 +86,27 @@ def fetch_data():
         return df
         
     except Exception as e:
-        # FAIL SAFE: If we can't read, we STOP. We do NOT return an empty DF.
-        # This prevents the app from thinking the DB is empty and saving blank state.
-        st.error(f"Unable to read Google Sheet. Retrying usually fixes this. Error details: {e}")
+        # FAIL SAFE: Stop execution if read fails. Do NOT return empty DF.
+        st.error(f"Connection Error: {e}")
         st.stop()
 
 def save_data(df):
+    """Saves data to Google Sheets."""
     conn = get_gsheets_conn()
     conn.update(worksheet='Tasks', data=df)
     st.cache_data.clear()
 
 def init_db():
+    """Initializes the DB only if it is missing."""
     conn = get_gsheets_conn()
     required_cols = ['id', 'text', 'priority', 'completed', 'created_at', 'completed_at', 'was_auto_promoted']
     try:
-        # Try to read to check existence
         conn.read(worksheet='Tasks', ttl=0)
     except Exception as e:
-        # Only initialize if it is a "WorksheetNotFound" error
         if "WorksheetNotFound" in str(e):
              df = pd.DataFrame(columns=required_cols)
              save_data(df)
-        else:
-             # If it's a network error, do nothing. Let fetch_data handle the stop.
-             pass
+        # Else: ignore. Let fetch_data catch it.
 
 def run_auto_promote():
     df = fetch_data()
@@ -147,11 +144,7 @@ def run_auto_promote():
 
 def add_task(text, priority):
     df = fetch_data()
-    # Double check we have a valid dataframe
-    if not isinstance(df, pd.DataFrame):
-        st.error("Error reading data. Task not added.")
-        return
-
+    
     new_row = pd.DataFrame([{
         'id': str(uuid.uuid4()),
         'text': text,
@@ -163,29 +156,57 @@ def add_task(text, priority):
     }])
     df = pd.concat([df, new_row], ignore_index=True)
     save_data(df)
-    st.success("Task Saved!")
+    st.toast("Task Added!")
 
 def toggle_complete(task_id, current_val):
     df = fetch_data()
-    mask = df['id'] == str(task_id)
-    if mask.any():
-        new_val = not current_val
-        df.loc[mask, 'completed'] = new_val
-        df.loc[mask, 'completed_at'] = str(get_current_time()) if new_val else None
-        save_data(df)
+    target_id = str(task_id)
+    
+    # SAFETY CHECK: Only proceed if ID exists
+    if target_id not in df['id'].values:
+        st.toast("⚠️ Task not found (sync error). Refreshing...")
+        return
+
+    mask = df['id'] == target_id
+    new_val = not current_val
+    df.loc[mask, 'completed'] = new_val
+    df.loc[mask, 'completed_at'] = str(get_current_time()) if new_val else None
+    
+    save_data(df)
 
 def update_task_details(task_id, new_text, new_priority):
     df = fetch_data()
-    mask = df['id'] == str(task_id)
-    if mask.any():
-        df.loc[mask, 'text'] = new_text
-        df.loc[mask, 'priority'] = new_priority
-        save_data(df)
+    target_id = str(task_id)
+    
+    # SAFETY CHECK
+    if target_id not in df['id'].values:
+        st.toast("⚠️ Task not found. Cannot update.")
+        return
+
+    mask = df['id'] == target_id
+    df.loc[mask, 'text'] = new_text
+    df.loc[mask, 'priority'] = new_priority
+    save_data(df)
+    st.toast("Task Updated!")
 
 def delete_task(task_id):
     df = fetch_data()
-    df = df[df['id'] != str(task_id)]
+    target_id = str(task_id)
+    
+    # CRITICAL SAFETY CHECK:
+    # If the ID is not in the fetched data, DO NOT SAVE.
+    # This implies the fetched data might be empty or stale.
+    # Saving now would overwrite the DB with missing data.
+    if target_id not in df['id'].values:
+        st.toast("⚠️ Task not found (already deleted?). Data preserved.")
+        return
+
+    # Filter out the task
+    df = df[df['id'] != target_id]
+    
+    # Save only after verification
     save_data(df)
+    st.toast("Task Deleted!")
 
 # --- Execution ---
 init_db()
