@@ -287,7 +287,15 @@ with col_main:
             
             with c_actions.popover("⋮"):
                 e_txt = st.text_input("Text", task['text'], key=f"e_{task['id']}")
-                e_prio = st.selectbox("Level", ["High", "Medium", "Low"], key=f"ep_{task['id']}")
+                
+                # --- FIX: SAFE PRIORITY SELECTION ---
+                prio_options = ["High", "Medium", "Low"]
+                curr_prio = task['priority']
+                if curr_prio not in prio_options:
+                    curr_prio = "Medium" # Fallback to prevent crash
+                
+                e_prio = st.selectbox("Level", prio_options, index=prio_options.index(curr_prio), key=f"ep_{task['id']}")
+                
                 if st.button("Save", key=f"sv_{task['id']}"):
                     update_task_details(task['id'], e_txt, e_prio)
                     st.rerun()
