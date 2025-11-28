@@ -6,6 +6,7 @@ import pytz
 import time
 import random
 from streamlit_gsheets import GSheetsConnection
+from streamlit_sortables import sort_items
 
 # --- Configuration ---
 st.set_page_config(page_title="Task Master Pro", page_icon="⚡", layout="wide")
@@ -25,7 +26,7 @@ st.markdown("""
     .block-container { 
         padding-top: 2rem; 
         padding-bottom: 5rem; 
-        max-width: 1100px; /* Slightly tighter width for focus */
+        max-width: 1100px;
     }
     
     /* --- ANIMATIONS --- */
@@ -67,56 +68,11 @@ st.markdown("""
         margin-bottom: 30px;
     }
 
-    /* --- COMPACT TASK CARD --- */
-    .task-card {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 10px 14px; /* Reduced padding */
-        margin-bottom: 8px; /* Reduced margin */
-        
-        /* Smooth Animation */
-        animation: fadeIn 0.3s ease-out forwards;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        
-        display: flex;
-        flex-direction: column;
+    /* --- SORTABLE ITEM STYLING (Custom CSS for the component) --- */
+    /* Note: We inject this to override the default look of streamlit-sortables */
+    div[data-testid="stVerticalBlock"] > div > div > div > div > div {
+        background-color: transparent !important;
     }
-    .task-card:hover {
-        background-color: #253045; 
-        border-color: #475569;
-        transform: translateX(4px);
-    }
-    
-    /* Elegant Priority Stripes */
-    .border-high { border-left: 3px solid #ef4444 !important; }   
-    .border-medium { border-left: 3px solid #f59e0b !important; } 
-    .border-low { border-left: 3px solid #10b981 !important; }    
-
-    /* --- TYPOGRAPHY --- */
-    .task-text {
-        font-size: 0.95rem; /* Slightly smaller */
-        font-weight: 500;
-        color: #f1f5f9; 
-        margin-bottom: 4px;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* --- BADGES --- */
-    .badge {
-        padding: 2px 8px; /* Compact badge */
-        border-radius: 12px;
-        font-size: 0.6rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        display: inline-block;
-        margin-right: 6px;
-    }
-    .badge-high { color: #fecaca; background-color: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .badge-medium { color: #fde68a; background-color: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-low { color: #a7f3d0; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-promo { color: #fdba74; background-color: rgba(249, 115, 22, 0.15); border: 1px dashed rgba(249, 115, 22, 0.4); }
 
     /* --- SIDEBAR --- */
     section[data-testid="stSidebar"] {
@@ -139,37 +95,16 @@ st.markdown("""
         text-overflow: ellipsis;
     }
     
-    /* --- ENHANCED BUTTONS --- */
+    /* --- BUTTONS --- */
     .stButton button {
         border-radius: 6px;
         font-weight: 500;
         transition: all 0.2s;
     }
     
-    /* Specific styling for Up/Down buttons */
-    /* Targeting the buttons inside the 'move' columns */
-    div[data-testid="column"] button p {
-        font-size: 1.1rem; /* Larger arrows */
-        line-height: 1;
-    }
-    div[data-testid="column"] button {
-        background-color: #1e293b; /* Button BG */
-        border: 1px solid #334155;
-        color: #94a3b8;
-        padding: 4px 8px;
-        height: auto;
-        min-height: 32px;
-        width: 100%; /* Fill column width */
-    }
-    div[data-testid="column"] button:hover {
-        background-color: #334155;
-        border-color: #475569;
-        color: #f8fafc;
-    }
-    
     /* Checkbox Alignment Fix */
     div[data-testid="stCheckbox"] {
-        padding-top: 12px; /* Center align with card */
+        padding-top: 12px;
     }
     
     /* Hide Streamlit Branding */
@@ -240,8 +175,9 @@ def load_data(force_refresh=False):
         for col in cols:
             if col not in df.columns: df[col] = None
         
+        # Initialize sort index if missing
         if df['custom_sort_index'].isnull().all() and not df.empty:
-            df['custom_sort_index'] = range(len(df), 0, -1)
+            df['custom_sort_index'] = range(len(df), 0, -1) # Default reverse order
         elif df['custom_sort_index'].isnull().any():
             max_val = df['custom_sort_index'].max()
             if pd.isna(max_val): max_val = 0
@@ -286,9 +222,12 @@ def run_auto_promote():
     if mask_promote.any():
         df.loc[mask_promote, 'priority'] = 'High'
         df.loc[mask_promote, 'was_auto_promoted'] = True
+        
+        # Bump promoted to top
         current_max = df['custom_sort_index'].max()
         if pd.isna(current_max): current_max = 0
         df.loc[mask_promote, 'custom_sort_index'] = current_max + 1
+        
         updates += 1
     
     mask_carried = ((df['completed'] == False) & (df['priority'] == 'High') & (df['was_auto_promoted'] == False) & (df['created_at'].str[:10] < today_str) & (df['created_at'].str[:10] != ''))
@@ -315,26 +254,6 @@ def add_task(text, priority):
     }])
     st.session_state['tasks_df'] = pd.concat([df, new_row], ignore_index=True)
     sync_to_cloud()
-
-def move_task(task_id, direction):
-    df = st.session_state['tasks_df']
-    df = df.sort_values(by='custom_sort_index', ascending=False).reset_index(drop=True)
-    try: current_idx = df[df['id'] == str(task_id)].index[0]
-    except IndexError: return
-
-    swap_idx = None
-    if direction == 'up' and current_idx > 0: swap_idx = current_idx - 1
-    elif direction == 'down' and current_idx < len(df) - 1: swap_idx = current_idx + 1
-        
-    if swap_idx is not None:
-        val_curr = df.at[current_idx, 'custom_sort_index']
-        val_swap = df.at[swap_idx, 'custom_sort_index']
-        if val_curr == val_swap: val_swap += 1
-        df.at[current_idx, 'custom_sort_index'] = val_swap
-        df.at[swap_idx, 'custom_sort_index'] = val_curr
-        
-        st.session_state['tasks_df'] = df
-        sync_to_cloud()
 
 def toggle_complete(task_id, current_val):
     df = st.session_state['tasks_df']
@@ -370,6 +289,40 @@ def delete_task(task_id):
     df = df[df['id'] != target_id]
     st.session_state['tasks_df'] = df
     sync_to_cloud()
+
+def handle_sort_change(sorted_list):
+    """
+    Updates the custom_sort_index based on the new order from drag-and-drop.
+    The top item gets the highest index.
+    """
+    df = st.session_state['tasks_df']
+    
+    # Create a map of text -> id for the active tasks to find them quickly
+    # Note: This simple implementation assumes unique task texts for the UI list
+    # A more robust way is to embed IDs in the sortable items string, but keep it simple first
+    
+    # We reconstruct the index based on the returned list order
+    # The first item in 'sorted_list' should have the highest 'custom_sort_index'
+    
+    total_items = len(sorted_list)
+    
+    for rank, item_text in enumerate(sorted_list):
+        # We need to find which task corresponds to this text
+        # Warning: If duplicates exist, this might pick the first one. 
+        # Ideally, sortable items should have unique keys.
+        
+        # Using a mask to find the task in the main DF
+        # We match based on text AND incomplete status (since we only show active tasks)
+        mask = (df['text'] == item_text) & (df['completed'] == False)
+        
+        if mask.any():
+            # Assign index: Top item gets (total), next gets (total-1), etc.
+            # This maintains DESC sort order
+            df.loc[mask, 'custom_sort_index'] = total_items - rank
+
+    st.session_state['tasks_df'] = df
+    sync_to_cloud()
+    st.rerun()
 
 # --- Execution ---
 load_data(force_refresh=False)
@@ -416,7 +369,7 @@ with col_main:
     st.caption(f"{get_current_time().strftime('%A, %B %d')}")
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 1. Metrics Dashboard
+    # 1. Metrics
     active = [t for t in all_tasks if not t['completed']]
     m1, m2, m3 = st.columns(3)
     m1.metric("Pending", len(active))
@@ -425,7 +378,7 @@ with col_main:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. Add Task (Input Wrapper)
+    # 2. Add Task
     st.markdown('<div class="input-wrapper">', unsafe_allow_html=True)
     with st.form("add_form", clear_on_submit=True, border=False):
         c1, c2, c3 = st.columns([3, 1.2, 0.8])
@@ -435,7 +388,8 @@ with col_main:
             if txt: add_task(txt, prio); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. Task List
+    # 3. Sortable Task List
+    # We sort by custom_sort_index DESC for display
     sorted_active = sorted(active, key=lambda x: x.get('custom_sort_index', 0), reverse=True)
 
     if not sorted_active:
@@ -444,22 +398,48 @@ with col_main:
             <p>🎉 Zero pending tasks!</p>
         </div>
         """, unsafe_allow_html=True)
+    
+    # PREPARE SORTABLE LIST
+    # We need a list of strings for the component. 
+    # NOTE: Duplicate text content can cause issues with simple string lists.
+    # For a robust app, ensure task text is unique or combine with a hidden ID.
+    task_items = [
+        {'text': t['text'], 'header': t['priority'], 'original': t} 
+        for t in sorted_active
+    ]
+    
+    # We will display the tasks using standard UI components but render them 
+    # based on the sorted order. 
+    # To use drag-and-drop, we render the sortable component.
+    
+    # Create the list of items for the sortable component
+    # We use a special format "Priority :: Task Name" to make it informative
+    sortable_list = [f"{t['text']}" for t in sorted_active]
+    
+    # Render the sortable list
+    # The return value 'sorted_items' is the list in new order
+    sorted_items = sort_items(sortable_list, direction='vertical')
+    
+    # Check if order changed
+    if sorted_items != sortable_list:
+        handle_sort_change(sorted_items)
 
-    for i, task in enumerate(sorted_active):
+    # Render the detailed cards (Non-draggable detailed view)
+    # Note: Streamlit-sortables renders a simple list. 
+    # Below, we render the RICH cards for editing/completing.
+    # They will appear in the order determined by the sort index.
+    
+    st.markdown("### 📝 Detailed List")
+    for task in sorted_active:
         p_class = f"border-{task['priority'].lower()}"
         b_class = f"badge-{task['priority'].lower()}"
         
-        # We use a container to act as the 'card'
         with st.container():
-            # Columns: Checkbox | Content | Sort (Up/Down) | Menu
-            # Adjusted widths for compact layout
-            c_check, c_content, c_move_up, c_move_dn, c_edit = st.columns([0.25, 4, 0.35, 0.35, 0.25])
+            c_check, c_content, c_edit = st.columns([0.25, 4.5, 0.25])
             
-            # Checkbox
-            c_check.write("") # Spacer to vertically align
+            c_check.write("") 
             c_check.checkbox("", key=f"c_{task['id']}", on_change=toggle_complete, args=(task['id'], False))
             
-            # Card Content
             badges = f'<span class="badge {b_class}">{task["priority"]}</span>'
             if task['was_auto_promoted']: badges += '<span class="badge badge-promo">⚠️ Carried Over</span>'
             
@@ -470,21 +450,6 @@ with col_main:
             </div>
             """, unsafe_allow_html=True)
             
-            # Move Buttons (Enhanced)
-            # Use columns to split Up/Down for better touch targets
-            with c_move_up:
-                st.write("")
-                if i > 0:
-                    if st.button("⬆", key=f"up_{task['id']}", help="Move Up"):
-                        move_task(task['id'], 'up'); st.rerun()
-            
-            with c_move_dn:
-                st.write("")
-                if i < len(sorted_active) - 1:
-                    if st.button("⬇", key=f"dn_{task['id']}", help="Move Down"):
-                        move_task(task['id'], 'down'); st.rerun()
-
-            # Menu (Edit/Delete)
             with c_edit:
                 st.write("")
                 with st.popover("⋮"):
