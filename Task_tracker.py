@@ -19,8 +19,8 @@ st.markdown("""
     .stApp {
         background-color: #0f172a; /* Slate 900 */
         background-image: 
-            radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%), 
-            radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%);
+            radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%), 
+            radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%);
     }
     
     .block-container { 
@@ -33,6 +33,16 @@ st.markdown("""
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(5px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- COLORFUL TITLE --- */
+    .colorful-title {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(to right, #38bdf8, #818cf8, #c084fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
     }
 
     /* --- METRICS DASHBOARD --- */
@@ -131,7 +141,7 @@ st.markdown("""
     }
     .badge-promo { color: #fdba74; border: 1px dashed rgba(249, 115, 22, 0.5); }
 
-    /* --- SIDEBAR HISTORY (Chat Style) --- */
+    /* --- SIDEBAR HISTORY (Redesigned) --- */
     section[data-testid="stSidebar"] {
         background-color: #020617; 
         border-right: 1px solid #1e293b;
@@ -458,7 +468,8 @@ col_main = st.container()
 
 # --- Main Content ---
 with col_main:
-    st.title("Task Master Pro")
+    # Use HTML for the colorful gradient title
+    st.markdown('<div class="colorful-title">Task Master Pro</div>', unsafe_allow_html=True)
     st.caption(f"{get_current_time().strftime('%A, %B %d')}")
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -501,6 +512,7 @@ with col_main:
             st.info("💡 Drag items to reorder, then switch toggle OFF to edit.")
             
             sortable_list = [t['text'] for t in sorted_active]
+            # Use 'vertical' direction to ensure list view downwards
             sorted_items = sort_items(sortable_list, direction='vertical')
             
             if sorted_items != sortable_list:
