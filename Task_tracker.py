@@ -19,14 +19,14 @@ st.markdown("""
     .stApp {
         background-color: #0f172a; /* Slate 900 */
         background-image: 
-            radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%), 
-            radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%);
+            radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%), 
+            radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%);
     }
     
     .block-container { 
         padding-top: 2rem; 
         padding-bottom: 5rem; 
-        max-width: 1100px;
+        max-width: 1000px; /* Tighter width for better focus */
     }
     
     /* --- ANIMATIONS --- */
@@ -37,44 +37,43 @@ st.markdown("""
 
     /* --- METRICS DASHBOARD --- */
     div[data-testid="metric-container"] {
-        background-color: #1e293b; 
-        border: 1px solid #334155;
-        padding: 12px 16px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        background-color: rgba(30, 41, 59, 0.7); /* Transparent Slate */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 10px 15px;
+        border-radius: 12px;
+        backdrop-filter: blur(5px);
         transition: transform 0.2s ease;
     }
     div[data-testid="metric-container"]:hover {
         transform: translateY(-2px);
-        border-color: #475569;
+        border-color: rgba(255, 255, 255, 0.2);
     }
     div[data-testid="metric-container"] label {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #94a3b8; 
     }
     div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         color: #f8fafc;
         font-weight: 700;
     }
 
     /* --- INPUT WRAPPER --- */
     .input-wrapper {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        padding: 16px;
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 15px;
         border-radius: 12px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        margin-bottom: 30px;
+        margin-bottom: 25px;
+        backdrop-filter: blur(10px);
     }
 
-    /* --- COMPACT TASK CARD --- */
+    /* --- COLORFUL COMPACT TASK CARDS --- */
     .task-card {
-        background-color: #1e293b;
-        border: 1px solid #334155;
         border-radius: 8px;
-        padding: 10px 14px;
+        padding: 8px 12px; /* Ultra Compact Padding */
         margin-bottom: 8px;
+        border: 1px solid transparent;
         
         /* Smooth Animation */
         animation: fadeIn 0.3s ease-out forwards;
@@ -84,51 +83,75 @@ st.markdown("""
         flex-direction: column;
     }
     .task-card:hover {
-        background-color: #253045; 
-        border-color: #475569;
         transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
-    /* Elegant Priority Stripes */
-    .border-high { border-left: 3px solid #ef4444 !important; }   
-    .border-medium { border-left: 3px solid #f59e0b !important; } 
-    .border-low { border-left: 3px solid #10b981 !important; }    
+    /* Dynamic Color Themes per Priority */
+    /* High: Red Tint */
+    .theme-high {
+        background-color: rgba(69, 10, 10, 0.4); /* Red 950 alpha */
+        border-left: 4px solid #ef4444;
+        border-top: 1px solid rgba(239, 68, 68, 0.2);
+        border-right: 1px solid rgba(239, 68, 68, 0.2);
+        border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .theme-high:hover { background-color: rgba(69, 10, 10, 0.6); }
+
+    /* Medium: Amber Tint */
+    .theme-medium {
+        background-color: rgba(69, 26, 3, 0.4); /* Amber/Orange alpha */
+        border-left: 4px solid #f59e0b;
+        border-top: 1px solid rgba(245, 158, 11, 0.2);
+        border-right: 1px solid rgba(245, 158, 11, 0.2);
+        border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    .theme-medium:hover { background-color: rgba(69, 26, 3, 0.6); }
+
+    /* Low: Emerald Tint */
+    .theme-low {
+        background-color: rgba(6, 78, 59, 0.4); /* Emerald 950 alpha */
+        border-left: 4px solid #10b981;
+        border-top: 1px solid rgba(16, 185, 129, 0.2);
+        border-right: 1px solid rgba(16, 185, 129, 0.2);
+        border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .theme-low:hover { background-color: rgba(6, 78, 59, 0.6); }
 
     /* --- TYPOGRAPHY --- */
     .task-text {
         font-size: 0.95rem;
         font-weight: 500;
         color: #f1f5f9; 
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         font-family: 'Inter', sans-serif;
     }
     
     /* --- BADGES --- */
     .badge {
-        padding: 2px 8px;
-        border-radius: 12px;
+        padding: 2px 6px;
+        border-radius: 4px;
         font-size: 0.6rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         display: inline-block;
         margin-right: 6px;
+        background: rgba(0,0,0,0.2); /* Darken bg behind badge */
+        color: rgba(255,255,255,0.8);
     }
-    .badge-high { color: #fecaca; background-color: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .badge-medium { color: #fde68a; background-color: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-low { color: #a7f3d0; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-promo { color: #fdba74; background-color: rgba(249, 115, 22, 0.15); border: 1px dashed rgba(249, 115, 22, 0.4); }
+    .badge-promo { color: #fdba74; border: 1px dashed rgba(249, 115, 22, 0.5); }
 
     /* --- SIDEBAR --- */
     section[data-testid="stSidebar"] {
-        background-color: #0f172a; 
+        background-color: #020617; 
         border-right: 1px solid #1e293b;
     }
     .history-card {
         padding: 8px 12px;
         border-radius: 6px;
-        border: 1px solid #334155;
-        background-color: #162032;
+        border: 1px solid #1e293b;
+        background-color: #0f172a;
         margin-bottom: 6px;
     }
     .history-text {
@@ -145,11 +168,14 @@ st.markdown("""
         border-radius: 6px;
         font-weight: 500;
         transition: all 0.2s;
+        height: auto !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
     }
     
     /* Checkbox Alignment Fix */
     div[data-testid="stCheckbox"] {
-        padding-top: 12px;
+        padding-top: 8px;
     }
     
     /* Hide Streamlit Branding */
@@ -187,23 +213,17 @@ def retry_operation(func, retries=5):
 
 # --- Optimized Data Handling ---
 def sync_to_cloud():
-    """Writes the CURRENT session state dataframe to the cloud."""
     if 'tasks_df' not in st.session_state: return
-    
     df = st.session_state['tasks_df']
     conn = get_gsheets_conn()
-    
     def write_op(): conn.update(worksheet='Tasks', data=df)
-    
     try:
         retry_operation(write_op)
-        st.cache_data.clear() # Clear cache so next hard refresh gets new data
+        st.cache_data.clear() 
     except Exception as e:
-        st.toast(f"⚠️ Cloud sync failed (Local data is preserved): {e}")
+        st.toast(f"⚠️ Cloud sync failed: {e}")
 
 def load_data(force_refresh=False):
-    """Loads data into Session State. Uses local cache if available for SPEED."""
-    
     if 'tasks_df' in st.session_state and not force_refresh:
         return st.session_state['tasks_df']
 
@@ -220,9 +240,8 @@ def load_data(force_refresh=False):
         for col in cols:
             if col not in df.columns: df[col] = None
         
-        # Initialize sort index if missing
         if df['custom_sort_index'].isnull().all() and not df.empty:
-            df['custom_sort_index'] = range(len(df), 0, -1) # Default reverse order
+            df['custom_sort_index'] = range(len(df), 0, -1)
         elif df['custom_sort_index'].isnull().any():
             max_val = df['custom_sort_index'].max()
             if pd.isna(max_val): max_val = 0
@@ -267,12 +286,9 @@ def run_auto_promote():
     if mask_promote.any():
         df.loc[mask_promote, 'priority'] = 'High'
         df.loc[mask_promote, 'was_auto_promoted'] = True
-        
-        # Bump promoted to top
         current_max = df['custom_sort_index'].max()
         if pd.isna(current_max): current_max = 0
         df.loc[mask_promote, 'custom_sort_index'] = current_max + 1
-        
         updates += 1
     
     mask_carried = ((df['completed'] == False) & (df['priority'] == 'High') & (df['was_auto_promoted'] == False) & (df['created_at'].str[:10] < today_str) & (df['created_at'].str[:10] != ''))
@@ -338,15 +354,11 @@ def delete_task(task_id):
 def handle_sort_change(sorted_list):
     """Updates the custom_sort_index based on the new order from drag-and-drop."""
     df = st.session_state['tasks_df']
-    
     total_items = len(sorted_list)
     for rank, item_text in enumerate(sorted_list):
-        # We reconstruct the index based on the returned list order
         mask = (df['text'] == item_text) & (df['completed'] == False)
         if mask.any():
-            # Highest rank = Top item
             df.loc[mask, 'custom_sort_index'] = total_items - rank
-
     st.session_state['tasks_df'] = df
     sync_to_cloud()
     st.rerun()
@@ -441,8 +453,7 @@ with col_main:
         else:
             # --- DETAILED CARD VIEW ---
             for i, task in enumerate(sorted_active):
-                p_class = f"border-{task['priority'].lower()}"
-                b_class = f"badge-{task['priority'].lower()}"
+                p_theme = f"theme-{task['priority'].lower()}" # Using new color themes
                 
                 with st.container():
                     c_check, c_content, c_edit = st.columns([0.25, 4.5, 0.25])
@@ -450,13 +461,13 @@ with col_main:
                     c_check.write("") 
                     c_check.checkbox("", key=f"c_{task['id']}", on_change=toggle_complete, args=(task['id'], False))
                     
-                    badges = f'<span class="badge {b_class}">{task["priority"]}</span>'
-                    if task['was_auto_promoted']: badges += '<span class="badge badge-promo">⚠️ Carried Over</span>'
+                    badges = f'<span class="badge">{task["priority"]}</span>'
+                    if task['was_auto_promoted']: badges += '<span class="badge badge-promo">⚠️ CARRIED OVER</span>'
                     
                     c_content.markdown(f"""
-                    <div class="task-card {p_class}">
+                    <div class="task-card {p_theme}">
                         <span class="task-text">{task['text']}</span>
-                        <div>{badges}</div>
+                        <div style="margin-top:4px;">{badges}</div>
                     </div>
                     """, unsafe_allow_html=True)
                     
