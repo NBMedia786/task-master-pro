@@ -26,7 +26,7 @@ st.markdown("""
     .block-container { 
         padding-top: 2rem; 
         padding-bottom: 5rem; 
-        max-width: 1000px; /* Tighter width for better focus */
+        max-width: 1000px; 
     }
     
     /* --- ANIMATIONS --- */
@@ -37,7 +37,7 @@ st.markdown("""
 
     /* --- METRICS DASHBOARD --- */
     div[data-testid="metric-container"] {
-        background-color: rgba(30, 41, 59, 0.7); /* Transparent Slate */
+        background-color: rgba(30, 41, 59, 0.7); 
         border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 10px 15px;
         border-radius: 12px;
@@ -71,14 +71,11 @@ st.markdown("""
     /* --- COLORFUL COMPACT TASK CARDS --- */
     .task-card {
         border-radius: 8px;
-        padding: 8px 12px; /* Ultra Compact Padding */
+        padding: 8px 12px; 
         margin-bottom: 8px;
         border: 1px solid transparent;
-        
-        /* Smooth Animation */
         animation: fadeIn 0.3s ease-out forwards;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        
         display: flex;
         flex-direction: column;
     }
@@ -87,36 +84,28 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
-    /* Dynamic Color Themes per Priority */
-    /* High: Red Tint */
+    /* Dynamic Color Themes */
     .theme-high {
-        background-color: rgba(69, 10, 10, 0.4); /* Red 950 alpha */
+        background-color: rgba(69, 10, 10, 0.4); 
         border-left: 4px solid #ef4444;
         border-top: 1px solid rgba(239, 68, 68, 0.2);
         border-right: 1px solid rgba(239, 68, 68, 0.2);
         border-bottom: 1px solid rgba(239, 68, 68, 0.2);
     }
-    .theme-high:hover { background-color: rgba(69, 10, 10, 0.6); }
-
-    /* Medium: Amber Tint */
     .theme-medium {
-        background-color: rgba(69, 26, 3, 0.4); /* Amber/Orange alpha */
+        background-color: rgba(69, 26, 3, 0.4); 
         border-left: 4px solid #f59e0b;
         border-top: 1px solid rgba(245, 158, 11, 0.2);
         border-right: 1px solid rgba(245, 158, 11, 0.2);
         border-bottom: 1px solid rgba(245, 158, 11, 0.2);
     }
-    .theme-medium:hover { background-color: rgba(69, 26, 3, 0.6); }
-
-    /* Low: Emerald Tint */
     .theme-low {
-        background-color: rgba(6, 78, 59, 0.4); /* Emerald 950 alpha */
+        background-color: rgba(6, 78, 59, 0.4); 
         border-left: 4px solid #10b981;
         border-top: 1px solid rgba(16, 185, 129, 0.2);
         border-right: 1px solid rgba(16, 185, 129, 0.2);
         border-bottom: 1px solid rgba(16, 185, 129, 0.2);
     }
-    .theme-low:hover { background-color: rgba(6, 78, 59, 0.6); }
 
     /* --- TYPOGRAPHY --- */
     .task-text {
@@ -137,30 +126,36 @@ st.markdown("""
         letter-spacing: 0.05em;
         display: inline-block;
         margin-right: 6px;
-        background: rgba(0,0,0,0.2); /* Darken bg behind badge */
+        background: rgba(0,0,0,0.2); 
         color: rgba(255,255,255,0.8);
     }
     .badge-promo { color: #fdba74; border: 1px dashed rgba(249, 115, 22, 0.5); }
 
-    /* --- SIDEBAR --- */
+    /* --- SIDEBAR HISTORY (Redesigned) --- */
     section[data-testid="stSidebar"] {
         background-color: #020617; 
         border-right: 1px solid #1e293b;
     }
-    .history-card {
-        padding: 8px 12px;
+    .history-row {
+        padding: 8px 4px;
+        border-bottom: 1px solid #1e293b;
+        display: flex;
+        align-items: center;
+        transition: background 0.2s;
+    }
+    .history-row:hover {
+        background-color: #1e293b;
         border-radius: 6px;
-        border: 1px solid #1e293b;
-        background-color: #0f172a;
-        margin-bottom: 6px;
     }
     .history-text {
         color: #64748b;
         text-decoration: line-through;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex-grow: 1;
+        padding-right: 10px;
     }
     
     /* --- BUTTONS --- */
@@ -173,9 +168,19 @@ st.markdown("""
         padding-bottom: 4px !important;
     }
     
+    /* Minimal Sidebar Buttons */
+    .sidebar-btn p { font-size: 0.75rem; }
+    
     /* Checkbox Alignment Fix */
-    div[data-testid="stCheckbox"] {
-        padding-top: 8px;
+    div[data-testid="stCheckbox"] { padding-top: 8px; }
+    
+    /* --- SORTABLE LIST OVERRIDES (Attempt to style 3rd party component) --- */
+    /* This targets the sortable list container to look cleaner */
+    iframe[title="streamlit_sortables.sort_items"] {
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background-color: #1e293b;
+        padding: 10px;
     }
     
     /* Hide Streamlit Branding */
@@ -386,19 +391,22 @@ with st.sidebar:
         st.markdown("<p style='color:#64748b; font-size:0.8rem; font-style:italic;'>No completed tasks.</p>", unsafe_allow_html=True)
         
     for task in completed:
+        # Minimal History Row
         st.markdown(f"""
-        <div class="history-card">
+        <div class="history-row">
             <div class="history-text">{task['text']}</div>
         </div>
         """, unsafe_allow_html=True)
         
-        c_spacer, c_undo, c_del = st.columns([1.5, 1, 1])
+        c_undo, c_del = st.columns([1, 1])
         with c_undo:
-            if st.button("↩️", key=f"u_{task['id']}", help="Restore"):
+            if st.button("↩️ Restore", key=f"u_{task['id']}", use_container_width=True):
                 toggle_complete(task['id'], True); st.rerun()
         with c_del:
-            if st.button("✕", key=f"d_{task['id']}", help="Delete"):
+            if st.button("✕ Delete", key=f"d_{task['id']}", use_container_width=True):
                 delete_task(task['id']); st.rerun()
+        
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 col_main = st.container()
 
@@ -445,8 +453,10 @@ with col_main:
         if reorder_mode:
             # --- DRAG & DROP VIEW ---
             st.info("💡 Drag items to reorder, then switch toggle OFF to edit.")
+            
+            # NOTE: We can't easily style the internal sortable items to blue using just CSS injection 
+            # because they are inside an iframe. However, the container style above helps.
             sortable_list = [t['text'] for t in sorted_active]
-            # Use 'vertical' direction to ensure list view downwards
             sorted_items = sort_items(sortable_list, direction='vertical')
             
             if sorted_items != sortable_list:
