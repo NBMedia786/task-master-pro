@@ -136,26 +136,49 @@ st.markdown("""
         background-color: #020617; 
         border-right: 1px solid #1e293b;
     }
-    .history-row {
-        padding: 8px 4px;
-        border-bottom: 1px solid #1e293b;
+    
+    .history-item {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 12px;
+        transition: all 0.2s ease;
+    }
+    .history-item:hover {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: #334155;
+    }
+    
+    .history-meta {
         display: flex;
+        justify-content: space-between;
         align-items: center;
-        transition: background 0.2s;
+        margin-bottom: 6px;
     }
-    .history-row:hover {
-        background-color: #1e293b;
-        border-radius: 6px;
+    
+    .history-tag {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+        font-weight: 600;
+        text-transform: uppercase;
     }
-    .history-text {
+    
+    .history-time {
+        font-size: 0.7rem;
         color: #64748b;
-        text-decoration: line-through;
+    }
+    
+    .history-content {
         font-size: 0.85rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        flex-grow: 1;
-        padding-right: 10px;
+        color: #94a3b8;
+        text-decoration: line-through;
+        line-height: 1.3;
+        margin-bottom: 8px;
+        word-break: break-word;
     }
     
     /* --- BUTTONS --- */
@@ -168,19 +191,16 @@ st.markdown("""
         padding-bottom: 4px !important;
     }
     
-    /* Minimal Sidebar Buttons */
-    .sidebar-btn p { font-size: 0.75rem; }
-    
     /* Checkbox Alignment Fix */
     div[data-testid="stCheckbox"] { padding-top: 8px; }
     
-    /* --- SORTABLE LIST OVERRIDES (Attempt to style 3rd party component) --- */
-    /* This targets the sortable list container to look cleaner */
+    /* --- SORTABLE LIST COLOR FIX --- */
     iframe[title="streamlit_sortables.sort_items"] {
         border: 1px solid #334155;
         border-radius: 8px;
         background-color: #1e293b;
         padding: 10px;
+        filter: hue-rotate(220deg) saturate(0.6) brightness(1.1);
     }
     
     /* Hide Streamlit Branding */
@@ -391,13 +411,29 @@ with st.sidebar:
         st.markdown("<p style='color:#64748b; font-size:0.8rem; font-style:italic;'>No completed tasks.</p>", unsafe_allow_html=True)
         
     for task in completed:
-        # Minimal History Row
+        # Determine relative time label
+        time_str = "Recently"
+        if task['completed_at']:
+            try:
+                dt_obj = datetime.datetime.fromisoformat(task['completed_at'])
+                if dt_obj.date() == get_current_time().date():
+                    time_str = "Today"
+                else:
+                    time_str = dt_obj.strftime("%b %d")
+            except: pass
+
+        # History Item Container
         st.markdown(f"""
-        <div class="history-row">
-            <div class="history-text">{task['text']}</div>
+        <div class="history-item">
+            <div class="history-meta">
+                <span class="history-tag">COMPLETED</span>
+                <span class="history-time">{time_str}</span>
+            </div>
+            <div class="history-content">{task['text']}</div>
         </div>
         """, unsafe_allow_html=True)
         
+        # Action Buttons
         c_undo, c_del = st.columns([1, 1])
         with c_undo:
             if st.button("↩️ Restore", key=f"u_{task['id']}", use_container_width=True):
@@ -405,8 +441,6 @@ with st.sidebar:
         with c_del:
             if st.button("✕ Delete", key=f"d_{task['id']}", use_container_width=True):
                 delete_task(task['id']); st.rerun()
-        
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 col_main = st.container()
 
@@ -454,8 +488,6 @@ with col_main:
             # --- DRAG & DROP VIEW ---
             st.info("💡 Drag items to reorder, then switch toggle OFF to edit.")
             
-            # NOTE: We can't easily style the internal sortable items to blue using just CSS injection 
-            # because they are inside an iframe. However, the container style above helps.
             sortable_list = [t['text'] for t in sorted_active]
             sorted_items = sort_items(sortable_list, direction='vertical')
             
@@ -464,7 +496,7 @@ with col_main:
         else:
             # --- DETAILED CARD VIEW ---
             for i, task in enumerate(sorted_active):
-                p_theme = f"theme-{task['priority'].lower()}" # Using new color themes
+                p_theme = f"theme-{task['priority'].lower()}" 
                 
                 with st.container():
                     c_check, c_content, c_edit = st.columns([0.25, 4.5, 0.25])
