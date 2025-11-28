@@ -446,7 +446,8 @@ with col_main:
             # --- DRAG & DROP VIEW ---
             st.info("💡 Drag items to reorder, then switch toggle OFF to edit.")
             sortable_list = [t['text'] for t in sorted_active]
-            sorted_items = sort_items(sortable_list)
+            # Use 'vertical' direction to ensure list view downwards
+            sorted_items = sort_items(sortable_list, direction='vertical')
             
             if sorted_items != sortable_list:
                 handle_sort_change(sorted_items)
