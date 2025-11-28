@@ -14,157 +14,167 @@ TIMEZONE = 'Asia/Kolkata'
 # --- Professional UI & CSS Styling ---
 st.markdown("""
     <style>
-    /* --- ANIMATIONS & GLOBAL --- */
-    @keyframes slideIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+    /* --- GLOBAL & BACKGROUND --- */
+    .stApp {
+        background-color: #0f172a; /* Slate 900 */
+        background-image: 
+            radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%), 
+            radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%);
     }
     
-    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
+    .block-container { 
+        padding-top: 2rem; 
+        padding-bottom: 5rem; 
+        max-width: 1100px; /* Slightly tighter width for focus */
+    }
     
-    /* --- METRICS & DASHBOARD --- */
+    /* --- ANIMATIONS --- */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- METRICS DASHBOARD --- */
     div[data-testid="metric-container"] {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        background-color: #1e293b; 
+        border: 1px solid #334155;
+        padding: 12px 16px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         transition: transform 0.2s ease;
     }
     div[data-testid="metric-container"]:hover {
         transform: translateY(-2px);
+        border-color: #475569;
     }
-    @media (prefers-color-scheme: dark) {
-        div[data-testid="metric-container"] {
-            background-color: #1e293b;
-            border-color: #334155;
-        }
+    div[data-testid="metric-container"] label {
+        font-size: 0.8rem;
+        color: #94a3b8; 
+    }
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        font-size: 1.5rem;
+        color: #f8fafc;
+        font-weight: 700;
     }
 
-    /* --- TASK CARD DESIGN --- */
-    .task-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
+    /* --- INPUT WRAPPER --- */
+    .input-wrapper {
+        background-color: #1e293b;
+        border: 1px solid #334155;
         padding: 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        border-radius: 12px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+
+    /* --- COMPACT TASK CARD --- */
+    .task-card {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px 14px; /* Reduced padding */
+        margin-bottom: 8px; /* Reduced margin */
         
         /* Smooth Animation */
-        animation: slideIn 0.4s ease-out forwards;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeIn 0.3s ease-out forwards;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         
         display: flex;
         flex-direction: column;
     }
     .task-card:hover {
-        transform: translateY(-3px) scale(1.005);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.08);
-        border-color: #cbd5e1;
+        background-color: #253045; 
+        border-color: #475569;
+        transform: translateX(4px);
     }
     
-    /* Priority Borders */
-    .border-high { border-left: 4px solid #ef4444 !important; }
-    .border-medium { border-left: 4px solid #f59e0b !important; }
-    .border-low { border-left: 4px solid #10b981 !important; }
-    
-    @media (prefers-color-scheme: dark) {
-        .task-card { 
-            background-color: #1e293b; 
-            border-color: #334155; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-        .task-card:hover {
-            background-color: #26334d;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-        }
-    }
+    /* Elegant Priority Stripes */
+    .border-high { border-left: 3px solid #ef4444 !important; }   
+    .border-medium { border-left: 3px solid #f59e0b !important; } 
+    .border-low { border-left: 3px solid #10b981 !important; }    
 
+    /* --- TYPOGRAPHY --- */
+    .task-text {
+        font-size: 0.95rem; /* Slightly smaller */
+        font-weight: 500;
+        color: #f1f5f9; 
+        margin-bottom: 4px;
+        font-family: 'Inter', sans-serif;
+    }
+    
     /* --- BADGES --- */
     .badge {
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 0.7rem;
+        padding: 2px 8px; /* Compact badge */
+        border-radius: 12px;
+        font-size: 0.6rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         display: inline-block;
         margin-right: 6px;
     }
-    .badge-high { color: #dc2626; background-color: #fee2e2; border: 1px solid #fecaca; }
-    .badge-medium { color: #d97706; background-color: #fef3c7; border: 1px solid #fde68a; }
-    .badge-low { color: #059669; background-color: #d1fae5; border: 1px solid #a7f3d0; }
-    .badge-promo { color: #b45309; background-color: #ffedd5; border: 1px dashed #fdba74; }
+    .badge-high { color: #fecaca; background-color: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-medium { color: #fde68a; background-color: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-low { color: #a7f3d0; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-promo { color: #fdba74; background-color: rgba(249, 115, 22, 0.15); border: 1px dashed rgba(249, 115, 22, 0.4); }
 
-    /* --- TYPOGRAPHY --- */
-    .task-text {
-        font-size: 1.05rem;
-        font-weight: 500;
-        color: #0f172a;
-        margin-bottom: 6px;
-        display: block;
-        font-family: 'Inter', sans-serif;
+    /* --- SIDEBAR --- */
+    section[data-testid="stSidebar"] {
+        background-color: #0f172a; 
+        border-right: 1px solid #1e293b;
     }
-    @media (prefers-color-scheme: dark) {
-        .task-text { color: #f1f5f9; }
-    }
-    
-    /* --- INPUT AREA (Glassmorphism) --- */
-    .input-wrapper {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(10px);
-        padding: 20px;
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        margin-bottom: 30px;
-    }
-    @media (prefers-color-scheme: dark) {
-        .input-wrapper {
-            background: rgba(30, 41, 59, 0.7);
-            border-color: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        }
-    }
-
-    /* --- COMPACT SIDEBAR HISTORY --- */
     .history-card {
-        padding: 10px;
-        background-color: transparent;
-        border-bottom: 1px solid #e2e8f0;
-        transition: background 0.2s;
+        padding: 8px 12px;
         border-radius: 6px;
-    }
-    .history-card:hover {
-        background-color: #f1f5f9;
+        border: 1px solid #334155;
+        background-color: #162032;
+        margin-bottom: 6px;
     }
     .history-text {
-        color: #94a3b8;
+        color: #64748b;
         text-decoration: line-through;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    @media (prefers-color-scheme: dark) {
-        .history-card { border-bottom-color: #334155; }
-        .history-card:hover { background-color: #334155; }
-    }
     
-    /* --- BUTTONS --- */
-    div[data-testid="column"] button {
+    /* --- ENHANCED BUTTONS --- */
+    .stButton button {
         border-radius: 6px;
-        padding: 0px 4px;
-        height: 32px;
-        min-height: 32px;
-        border: none;
-        background: transparent;
+        font-weight: 500;
         transition: all 0.2s;
     }
-    div[data-testid="column"] button:hover {
-        background: rgba(100, 116, 139, 0.1);
-        transform: scale(1.1);
+    
+    /* Specific styling for Up/Down buttons */
+    /* Targeting the buttons inside the 'move' columns */
+    div[data-testid="column"] button p {
+        font-size: 1.1rem; /* Larger arrows */
+        line-height: 1;
     }
+    div[data-testid="column"] button {
+        background-color: #1e293b; /* Button BG */
+        border: 1px solid #334155;
+        color: #94a3b8;
+        padding: 4px 8px;
+        height: auto;
+        min-height: 32px;
+        width: 100%; /* Fill column width */
+    }
+    div[data-testid="column"] button:hover {
+        background-color: #334155;
+        border-color: #475569;
+        color: #f8fafc;
+    }
+    
+    /* Checkbox Alignment Fix */
+    div[data-testid="stCheckbox"] {
+        padding-top: 12px; /* Center align with card */
+    }
+    
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -214,7 +224,6 @@ def sync_to_cloud():
 def load_data(force_refresh=False):
     """Loads data into Session State. Uses local cache if available for SPEED."""
     
-    # If we already have data and not forcing refresh, skip the download!
     if 'tasks_df' in st.session_state and not force_refresh:
         return st.session_state['tasks_df']
 
@@ -231,7 +240,6 @@ def load_data(force_refresh=False):
         for col in cols:
             if col not in df.columns: df[col] = None
         
-        # Schema Validation
         if df['custom_sort_index'].isnull().all() and not df.empty:
             df['custom_sort_index'] = range(len(df), 0, -1)
         elif df['custom_sort_index'].isnull().any():
@@ -252,7 +260,6 @@ def load_data(force_refresh=False):
         df['created_at'] = df['created_at'].astype(str).replace('nan', '')
         df['completed_at'] = df['completed_at'].astype(str).replace('nan', None)
         
-        # Store in Session State
         st.session_state['tasks_df'] = df
         return df
         
@@ -291,12 +298,12 @@ def run_auto_promote():
     
     if updates > 0:
         st.session_state['tasks_df'] = df
-        sync_to_cloud() # Push changes
+        sync_to_cloud() 
         if mask_promote.sum() > 0: st.toast(f"🚀 Promoted {mask_promote.sum()} tasks!")
     
     st.session_state['auto_promote_ran'] = True
 
-# --- Actions (Modify Local State -> Sync -> Rerun) ---
+# --- Actions ---
 def add_task(text, priority):
     df = st.session_state['tasks_df']
     max_idx = df['custom_sort_index'].max()
@@ -365,22 +372,16 @@ def delete_task(task_id):
     sync_to_cloud()
 
 # --- Execution ---
-# 1. Load Data (from Cache if exists, or Cloud)
 load_data(force_refresh=False)
-
-# 2. Run Logic
 run_auto_promote()
-
-# 3. Get Data for UI
 all_tasks = st.session_state['tasks_df'].to_dict('records')
 
 # --- Main Layout ---
-# Sidebar first for mobile responsiveness
 with st.sidebar:
     c_title, c_ref = st.columns([3, 1])
-    with c_title: st.title("📜 History")
+    with c_title: st.title("History")
     with c_ref: 
-        if st.button("🔄", help="Force Sync from Cloud"):
+        if st.button("🔄", help="Force Sync"):
             load_data(force_refresh=True)
             st.rerun()
 
@@ -390,22 +391,21 @@ with st.sidebar:
     completed = sorted(completed, key=lambda x: x['completed_at'] if x['completed_at'] else '0', reverse=True)
 
     if not completed:
-        st.markdown("<p style='color:gray; font-size:0.9rem;'>No completed tasks.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#64748b; font-size:0.8rem; font-style:italic;'>No completed tasks.</p>", unsafe_allow_html=True)
         
     for task in completed:
-        # Compact History Row with Icon Buttons
         st.markdown(f"""
         <div class="history-card">
             <div class="history-text">{task['text']}</div>
         </div>
         """, unsafe_allow_html=True)
         
-        c_spacer, c_undo, c_del = st.columns([2, 1, 1])
+        c_spacer, c_undo, c_del = st.columns([1.5, 1, 1])
         with c_undo:
-            if st.button("↩️", key=f"u_{task['id']}", help="Restore to list"):
+            if st.button("↩️", key=f"u_{task['id']}", help="Restore"):
                 toggle_complete(task['id'], True); st.rerun()
         with c_del:
-            if st.button("✕", key=f"d_{task['id']}", help="Delete permanently"):
+            if st.button("✕", key=f"d_{task['id']}", help="Delete"):
                 delete_task(task['id']); st.rerun()
 
 col_main = st.container()
@@ -413,23 +413,23 @@ col_main = st.container()
 # --- Main Content ---
 with col_main:
     st.title("Task Master Pro")
-    st.markdown(f"<p style='color:#64748b; margin-top:-15px;'>{get_current_time().strftime('%A, %B %d')}</p>", unsafe_allow_html=True)
+    st.caption(f"{get_current_time().strftime('%A, %B %d')}")
     st.markdown("<br>", unsafe_allow_html=True)
 
     # 1. Metrics Dashboard
     active = [t for t in all_tasks if not t['completed']]
     m1, m2, m3 = st.columns(3)
-    m1.metric("Pending Tasks", len(active))
+    m1.metric("Pending", len(active))
     m2.metric("Done Today", len([t for t in completed if t['completed_at'] and t['completed_at'][:10] == get_today_str()]))
-    m3.metric("Total Tasks", len(all_tasks))
+    m3.metric("Total", len(all_tasks))
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. Add Task (Glassmorphism Wrapper)
+    # 2. Add Task (Input Wrapper)
     st.markdown('<div class="input-wrapper">', unsafe_allow_html=True)
     with st.form("add_form", clear_on_submit=True, border=False):
         c1, c2, c3 = st.columns([3, 1.2, 0.8])
-        txt = c1.text_input("New Task", placeholder="✨ Add a new task...", label_visibility="collapsed")
+        txt = c1.text_input("New Task", placeholder="Add a new task...", label_visibility="collapsed")
         prio = c2.selectbox("Priority", ["High", "Medium", "Low"], label_visibility="collapsed")
         if c3.form_submit_button("Add", type="primary", use_container_width=True):
             if txt: add_task(txt, prio); st.rerun()
@@ -440,9 +440,8 @@ with col_main:
 
     if not sorted_active:
         st.markdown("""
-        <div style='text-align: center; padding: 40px; background: #f8fafc; border-radius: 12px; color: #64748b; margin-top:20px;'>
-            <h3>🎉 All Clean!</h3>
-            <p>You have zero pending tasks. Enjoy your day!</p>
+        <div style='text-align: center; padding: 30px; background: rgba(255,255,255,0.05); border: 1px dashed #334155; border-radius: 12px; color: #94a3b8; margin-top:10px;'>
+            <p>🎉 Zero pending tasks!</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -452,15 +451,15 @@ with col_main:
         
         # We use a container to act as the 'card'
         with st.container():
-            # Columns: Checkbox | Content | Sort | Actions
-            c_check, c_content, c_move, c_edit = st.columns([0.3, 4, 0.6, 0.3])
+            # Columns: Checkbox | Content | Sort (Up/Down) | Menu
+            # Adjusted widths for compact layout
+            c_check, c_content, c_move_up, c_move_dn, c_edit = st.columns([0.25, 4, 0.35, 0.35, 0.25])
             
             # Checkbox
-            c_check.write("")
-            c_check.write("")
+            c_check.write("") # Spacer to vertically align
             c_check.checkbox("", key=f"c_{task['id']}", on_change=toggle_complete, args=(task['id'], False))
             
-            # Card Content (HTML)
+            # Card Content
             badges = f'<span class="badge {b_class}">{task["priority"]}</span>'
             if task['was_auto_promoted']: badges += '<span class="badge badge-promo">⚠️ Carried Over</span>'
             
@@ -471,20 +470,22 @@ with col_main:
             </div>
             """, unsafe_allow_html=True)
             
-            # Move Buttons (Up/Down) - Minimal UI
-            with c_move:
-                st.write("")
+            # Move Buttons (Enhanced)
+            # Use columns to split Up/Down for better touch targets
+            with c_move_up:
                 st.write("")
                 if i > 0:
-                    if st.button("↑", key=f"up_{task['id']}", help="Move Up"):
+                    if st.button("⬆", key=f"up_{task['id']}", help="Move Up"):
                         move_task(task['id'], 'up'); st.rerun()
+            
+            with c_move_dn:
+                st.write("")
                 if i < len(sorted_active) - 1:
-                    if st.button("↓", key=f"dn_{task['id']}", help="Move Down"):
+                    if st.button("⬇", key=f"dn_{task['id']}", help="Move Down"):
                         move_task(task['id'], 'down'); st.rerun()
 
             # Menu (Edit/Delete)
             with c_edit:
-                st.write("")
                 st.write("")
                 with st.popover("⋮"):
                     st.caption("Edit Task")
