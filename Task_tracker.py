@@ -68,11 +68,56 @@ st.markdown("""
         margin-bottom: 30px;
     }
 
-    /* --- SORTABLE ITEM STYLING (Custom CSS for the component) --- */
-    /* Note: We inject this to override the default look of streamlit-sortables */
-    div[data-testid="stVerticalBlock"] > div > div > div > div > div {
-        background-color: transparent !important;
+    /* --- COMPACT TASK CARD --- */
+    .task-card {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        
+        /* Smooth Animation */
+        animation: fadeIn 0.3s ease-out forwards;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        
+        display: flex;
+        flex-direction: column;
     }
+    .task-card:hover {
+        background-color: #253045; 
+        border-color: #475569;
+        transform: translateX(4px);
+    }
+    
+    /* Elegant Priority Stripes */
+    .border-high { border-left: 3px solid #ef4444 !important; }   
+    .border-medium { border-left: 3px solid #f59e0b !important; } 
+    .border-low { border-left: 3px solid #10b981 !important; }    
+
+    /* --- TYPOGRAPHY --- */
+    .task-text {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #f1f5f9; 
+        margin-bottom: 4px;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* --- BADGES --- */
+    .badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .badge-high { color: #fecaca; background-color: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-medium { color: #fde68a; background-color: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-low { color: #a7f3d0; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-promo { color: #fdba74; background-color: rgba(249, 115, 22, 0.15); border: 1px dashed rgba(249, 115, 22, 0.4); }
 
     /* --- SIDEBAR --- */
     section[data-testid="stSidebar"] {
@@ -291,33 +336,15 @@ def delete_task(task_id):
     sync_to_cloud()
 
 def handle_sort_change(sorted_list):
-    """
-    Updates the custom_sort_index based on the new order from drag-and-drop.
-    The top item gets the highest index.
-    """
+    """Updates the custom_sort_index based on the new order from drag-and-drop."""
     df = st.session_state['tasks_df']
     
-    # Create a map of text -> id for the active tasks to find them quickly
-    # Note: This simple implementation assumes unique task texts for the UI list
-    # A more robust way is to embed IDs in the sortable items string, but keep it simple first
-    
-    # We reconstruct the index based on the returned list order
-    # The first item in 'sorted_list' should have the highest 'custom_sort_index'
-    
     total_items = len(sorted_list)
-    
     for rank, item_text in enumerate(sorted_list):
-        # We need to find which task corresponds to this text
-        # Warning: If duplicates exist, this might pick the first one. 
-        # Ideally, sortable items should have unique keys.
-        
-        # Using a mask to find the task in the main DF
-        # We match based on text AND incomplete status (since we only show active tasks)
+        # We reconstruct the index based on the returned list order
         mask = (df['text'] == item_text) & (df['completed'] == False)
-        
         if mask.any():
-            # Assign index: Top item gets (total), next gets (total-1), etc.
-            # This maintains DESC sort order
+            # Highest rank = Top item
             df.loc[mask, 'custom_sort_index'] = total_items - rank
 
     st.session_state['tasks_df'] = df
@@ -388,8 +415,7 @@ with col_main:
             if txt: add_task(txt, prio); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. Sortable Task List
-    # We sort by custom_sort_index DESC for display
+    # 3. Task List - MODE SWITCHING
     sorted_active = sorted(active, key=lambda x: x.get('custom_sort_index', 0), reverse=True)
 
     if not sorted_active:
@@ -398,71 +424,55 @@ with col_main:
             <p>🎉 Zero pending tasks!</p>
         </div>
         """, unsafe_allow_html=True)
-    
-    # PREPARE SORTABLE LIST
-    # We need a list of strings for the component. 
-    # NOTE: Duplicate text content can cause issues with simple string lists.
-    # For a robust app, ensure task text is unique or combine with a hidden ID.
-    task_items = [
-        {'text': t['text'], 'header': t['priority'], 'original': t} 
-        for t in sorted_active
-    ]
-    
-    # We will display the tasks using standard UI components but render them 
-    # based on the sorted order. 
-    # To use drag-and-drop, we render the sortable component.
-    
-    # Create the list of items for the sortable component
-    # We use a special format "Priority :: Task Name" to make it informative
-    sortable_list = [f"{t['text']}" for t in sorted_active]
-    
-    # Render the sortable list
-    # The return value 'sorted_items' is the list in new order
-    sorted_items = sort_items(sortable_list, direction='vertical')
-    
-    # Check if order changed
-    if sorted_items != sortable_list:
-        handle_sort_change(sorted_items)
-
-    # Render the detailed cards (Non-draggable detailed view)
-    # Note: Streamlit-sortables renders a simple list. 
-    # Below, we render the RICH cards for editing/completing.
-    # They will appear in the order determined by the sort index.
-    
-    st.markdown("### 📝 Detailed List")
-    for task in sorted_active:
-        p_class = f"border-{task['priority'].lower()}"
-        b_class = f"badge-{task['priority'].lower()}"
+    else:
+        # MODE TOGGLE
+        col_lbl, col_tog = st.columns([0.8, 0.2])
+        with col_lbl: st.caption("Active Tasks")
+        with col_tog: reorder_mode = st.toggle("Reorder Mode", key="reorder_toggle")
         
-        with st.container():
-            c_check, c_content, c_edit = st.columns([0.25, 4.5, 0.25])
+        if reorder_mode:
+            # --- DRAG & DROP VIEW ---
+            st.info("💡 Drag items to reorder, then switch toggle OFF to edit.")
+            sortable_list = [t['text'] for t in sorted_active]
+            sorted_items = sort_items(sortable_list)
             
-            c_check.write("") 
-            c_check.checkbox("", key=f"c_{task['id']}", on_change=toggle_complete, args=(task['id'], False))
-            
-            badges = f'<span class="badge {b_class}">{task["priority"]}</span>'
-            if task['was_auto_promoted']: badges += '<span class="badge badge-promo">⚠️ Carried Over</span>'
-            
-            c_content.markdown(f"""
-            <div class="task-card {p_class}">
-                <span class="task-text">{task['text']}</span>
-                <div>{badges}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            with c_edit:
-                st.write("")
-                with st.popover("⋮"):
-                    st.caption("Edit Task")
-                    e_txt = st.text_input("Name", task['text'], key=f"e_{task['id']}")
+            if sorted_items != sortable_list:
+                handle_sort_change(sorted_items)
+        else:
+            # --- DETAILED CARD VIEW ---
+            for i, task in enumerate(sorted_active):
+                p_class = f"border-{task['priority'].lower()}"
+                b_class = f"badge-{task['priority'].lower()}"
+                
+                with st.container():
+                    c_check, c_content, c_edit = st.columns([0.25, 4.5, 0.25])
                     
-                    opts = ["High", "Medium", "Low"]
-                    curr = task['priority'] if task['priority'] in opts else "Medium"
-                    e_prio = st.selectbox("Priority", opts, index=opts.index(curr), key=f"ep_{task['id']}")
+                    c_check.write("") 
+                    c_check.checkbox("", key=f"c_{task['id']}", on_change=toggle_complete, args=(task['id'], False))
                     
-                    if st.button("💾 Save", key=f"sv_{task['id']}", type="primary", use_container_width=True):
-                        update_task_details(task['id'], e_txt, e_prio); st.rerun()
+                    badges = f'<span class="badge {b_class}">{task["priority"]}</span>'
+                    if task['was_auto_promoted']: badges += '<span class="badge badge-promo">⚠️ Carried Over</span>'
                     
-                    st.divider()
-                    if st.button("🗑️ Delete", key=f"dl_{task['id']}", use_container_width=True):
-                        delete_task(task['id']); st.rerun()
+                    c_content.markdown(f"""
+                    <div class="task-card {p_class}">
+                        <span class="task-text">{task['text']}</span>
+                        <div>{badges}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    with c_edit:
+                        st.write("")
+                        with st.popover("⋮"):
+                            st.caption("Edit Task")
+                            e_txt = st.text_input("Name", task['text'], key=f"e_{task['id']}")
+                            
+                            opts = ["High", "Medium", "Low"]
+                            curr = task['priority'] if task['priority'] in opts else "Medium"
+                            e_prio = st.selectbox("Priority", opts, index=opts.index(curr), key=f"ep_{task['id']}")
+                            
+                            if st.button("💾 Save", key=f"sv_{task['id']}", type="primary", use_container_width=True):
+                                update_task_details(task['id'], e_txt, e_prio); st.rerun()
+                            
+                            st.divider()
+                            if st.button("🗑️ Delete", key=f"dl_{task['id']}", use_container_width=True):
+                                delete_task(task['id']); st.rerun()
