@@ -131,54 +131,60 @@ st.markdown("""
     }
     .badge-promo { color: #fdba74; border: 1px dashed rgba(249, 115, 22, 0.5); }
 
-    /* --- SIDEBAR HISTORY (Redesigned) --- */
+    /* --- SIDEBAR HISTORY (Chat Style) --- */
     section[data-testid="stSidebar"] {
         background-color: #020617; 
         border-right: 1px solid #1e293b;
     }
     
-    .history-item {
-        background: rgba(30, 41, 59, 0.4);
-        border: 1px solid #1e293b;
-        border-radius: 8px;
-        padding: 10px;
-        margin-bottom: 12px;
-        transition: all 0.2s ease;
-    }
-    .history-item:hover {
-        background: rgba(30, 41, 59, 0.8);
-        border-color: #334155;
-    }
-    
-    .history-meta {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 6px;
-    }
-    
-    .history-tag {
-        font-size: 0.65rem;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background: rgba(16, 185, 129, 0.15);
-        color: #34d399;
+    .history-header {
+        font-size: 0.75rem;
         font-weight: 600;
-        text-transform: uppercase;
-    }
-    
-    .history-time {
-        font-size: 0.7rem;
         color: #64748b;
+        margin-top: 15px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
     
-    .history-content {
+    .history-row {
+        padding: 6px 10px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        transition: background 0.15s ease;
+        margin-bottom: 2px;
+        cursor: pointer;
+    }
+    .history-row:hover {
+        background-color: #1e293b;
+    }
+    
+    .history-text {
+        color: #94a3b8; /* Muted text */
         font-size: 0.85rem;
-        color: #94a3b8;
-        text-decoration: line-through;
-        line-height: 1.3;
-        margin-bottom: 8px;
-        word-break: break-word;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-grow: 1;
+    }
+    .history-row:hover .history-text {
+        color: #e2e8f0; /* Brighter on hover */
+    }
+    
+    /* Small Sidebar Buttons */
+    .mini-btn button {
+        padding: 0px 4px !important;
+        font-size: 0.7rem !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        background: transparent !important;
+        border: none !important;
+        color: #475569 !important;
+    }
+    .mini-btn button:hover {
+        color: #f8fafc !important;
+        background: rgba(255,255,255,0.1) !important;
     }
     
     /* --- BUTTONS --- */
@@ -186,9 +192,6 @@ st.markdown("""
         border-radius: 6px;
         font-weight: 500;
         transition: all 0.2s;
-        height: auto !important;
-        padding-top: 4px !important;
-        padding-bottom: 4px !important;
     }
     
     /* Checkbox Alignment Fix */
@@ -396,51 +399,60 @@ all_tasks = st.session_state['tasks_df'].to_dict('records')
 # --- Main Layout ---
 with st.sidebar:
     c_title, c_ref = st.columns([3, 1])
-    with c_title: st.title("History")
+    with c_title: st.subheader("History")
     with c_ref: 
-        if st.button("🔄", help="Force Sync"):
+        if st.button("↻", help="Force Sync"):
             load_data(force_refresh=True)
             st.rerun()
 
-    st.markdown("---")
-    
+    # Sort history by completion date
     completed = [t for t in all_tasks if t['completed']]
     completed = sorted(completed, key=lambda x: x['completed_at'] if x['completed_at'] else '0', reverse=True)
 
     if not completed:
-        st.markdown("<p style='color:#64748b; font-size:0.8rem; font-style:italic;'>No completed tasks.</p>", unsafe_allow_html=True)
+        st.caption("No completed tasks.")
         
-    for task in completed:
-        # Determine relative time label
-        time_str = "Recently"
-        if task['completed_at']:
-            try:
-                dt_obj = datetime.datetime.fromisoformat(task['completed_at'])
-                if dt_obj.date() == get_current_time().date():
-                    time_str = "Today"
-                else:
-                    time_str = dt_obj.strftime("%b %d")
-            except: pass
+    # Group by Date
+    today_tasks = []
+    yesterday_tasks = []
+    older_tasks = []
+    
+    today_date = get_current_time().date()
+    yesterday_date = today_date - datetime.timedelta(days=1)
+    
+    for t in completed:
+        try:
+            t_date = datetime.datetime.fromisoformat(t['completed_at']).date()
+            if t_date == today_date: today_tasks.append(t)
+            elif t_date == yesterday_date: yesterday_tasks.append(t)
+            else: older_tasks.append(t)
+        except: older_tasks.append(t)
 
-        # History Item Container
-        st.markdown(f"""
-        <div class="history-item">
-            <div class="history-meta">
-                <span class="history-tag">COMPLETED</span>
-                <span class="history-time">{time_str}</span>
-            </div>
-            <div class="history-content">{task['text']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Action Buttons
-        c_undo, c_del = st.columns([1, 1])
-        with c_undo:
-            if st.button("↩️ Restore", key=f"u_{task['id']}", use_container_width=True):
-                toggle_complete(task['id'], True); st.rerun()
-        with c_del:
-            if st.button("✕ Delete", key=f"d_{task['id']}", use_container_width=True):
-                delete_task(task['id']); st.rerun()
+    def render_history_group(title, tasks):
+        if not tasks: return
+        st.markdown(f"<div class='history-header'>{title}</div>", unsafe_allow_html=True)
+        for task in tasks:
+            # Container with custom CSS for hover effect
+            with st.container():
+                c_text, c_act = st.columns([0.8, 0.2])
+                with c_text:
+                    st.markdown(f"""
+                    <div class="history-row">
+                        <div class="history-text">{task['text']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with c_act:
+                    with st.popover("⋮", use_container_width=True):
+                        st.caption("Actions")
+                        if st.button("Restore", key=f"r_{task['id']}", use_container_width=True):
+                            toggle_complete(task['id'], True); st.rerun()
+                        if st.button("Delete", key=f"d_{task['id']}", use_container_width=True):
+                            delete_task(task['id']); st.rerun()
+
+    render_history_group("Today", today_tasks)
+    render_history_group("Yesterday", yesterday_tasks)
+    render_history_group("Previous 7 Days", older_tasks)
+
 
 col_main = st.container()
 
